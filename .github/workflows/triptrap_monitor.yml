@@ -1,0 +1,42 @@
+name: SSG 트립트랩 이유식 세트 10분 특가 모니터
+
+on:
+  schedule:
+    # 매 정각 기준 10분 단위 실행 (:00, :10, :20, :30, :40, :50)
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # GitHub 웹에서 수동 테스트 실행용
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 저장소 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 필수 패키지 설치
+        run: pip install requests beautifulsoup4
+
+      - name: 특가 모니터링 1회 실행
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python ssg_triptrap_monitor.py --once
+
+      - name: 중복 알림 방지 상태 저장
+        run: |
+          if [ -n "$(git status --porcelain alerted_items.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add alerted_items.json
+            git commit -m "chore: update alerted_items.json"
+            git push
+          fi
